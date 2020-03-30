@@ -17,7 +17,17 @@
     "lib": [
       "es2018",
       "dom"
-    ]
+    ],
+    "paths": {
+      "ng-filter-search": [
+        "dist/ng-filter-search/ng-filter-search",
+        "dist/ng-filter-search"
+      ],
+      "filter-search": [
+        "dist/filter-search/filter-search",
+        "dist/filter-search"
+      ]
+    }
   },
   "angularCompilerOptions": {
     "fullTemplateTypeCheck": true,
