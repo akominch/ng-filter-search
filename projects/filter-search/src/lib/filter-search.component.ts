@@ -2,14 +2,11 @@ import { Component, OnInit } from '@angular/core';
 
 @Component({
   selector: 'ng-filter-search',
-  template: `
-    <p>
-      filter-search works!
-    </p>
-  `,
-  styles: []
+  templateUrl: './filter-search.component.html',
+  styleUrls: ['foundation-theme.scss']
 })
 export class FilterSearchComponent implements OnInit {
+  fields = ['user', 'createdAt', 'updatedAt', 'list'];
 
   constructor() { }
 
