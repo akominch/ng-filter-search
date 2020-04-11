@@ -66,15 +66,17 @@ workflows:
       - install:
           requires:
             - checkout_code
+          post-steps:
+            - jira/notify
       - lint:
           requires:
             - install
+          post-steps:
+            - jira/notify
       - test:
           requires:
             - install
-      - jira/notify
-          requires:
-            - test
-            - lint
+          post-steps:
+            - jira/notify
 
 
