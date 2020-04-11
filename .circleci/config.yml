@@ -60,7 +60,7 @@ jobs:
 
 workflows:
   version: 2
-  test-lint:
+  testing-linting:
     jobs:
       - checkout_code
       - install:
@@ -72,5 +72,9 @@ workflows:
       - test:
           requires:
             - install
-      post-steps:
-        - jira/notify
+      - jira/notify
+          requires:
+            - test
+            - lint
+
+
