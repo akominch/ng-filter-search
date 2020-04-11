@@ -2,18 +2,92 @@ version: 2.1
 orbs:
   node: circleci/node@1.1.6
   jira: circleci/jira@1.1.6
+
 jobs:
-  build:
+  checkout_code:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - checkout
+      - save_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/filter-search-circleci
+
+  install:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+            key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+
+  test:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run: npm test
+
+
+  lint:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run: npm test
+
+  build-and-test:
     executor:
       name: node/default
     steps:
       - checkout
+      - run:
+          name: Show current branch
+          command: echo ${CIRCLE_BRANCH}
       - node/with-cache:
           steps:
             - run: npm install
+            - run: npm run lint
+            - run: npm test
 workflows:
-    build-and-test:
-      jobs:
-        - build:
-            post-steps:
-              - jira/notify  
+  version: 2
+  test-lint:
+    jobs:
+      - checkout_code
+      - install:
+          requires:
+            - checkout_code
+      - lint:
+          requires:
+            - install
+      - test:
+          requires:
+            - install
+      - build-and-test:
+          requires:
+            - lint
+            - test
+          post-steps:
+            - jira/notify
