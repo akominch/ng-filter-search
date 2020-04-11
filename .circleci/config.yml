@@ -58,19 +58,6 @@ jobs:
           key: dependency-cache-{{ checksum "package-lock.json" }}
       - run: npm test
 
-  build-and-test:
-    executor:
-      name: node/default
-    steps:
-      - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - node/with-cache:
-          steps:
-            - run: npm install
-            - run: npm run lint
-            - run: npm test
 workflows:
   version: 2
   test-lint:
@@ -85,9 +72,5 @@ workflows:
       - test:
           requires:
             - install
-      - build-and-test:
-          requires:
-            - lint
-            - test
-          post-steps:
-            - jira/notify
+      post-steps:
+        - jira/notify
