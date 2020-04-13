@@ -74,6 +74,7 @@ jobs:
     executor: node
     working_directory: ~/filter-search-circleci
     steps:
+      - <<: *restore_checkout_code
       - <<: *restore_storybook
       - run:
           name: Install Netlify CLI
