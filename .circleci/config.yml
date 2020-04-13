@@ -63,7 +63,7 @@ jobs:
               .Environment.CIRCLE_SHA1 }}
       - run:
           name: Netlify Deploy
-          command: ./node_modules/.bin/netlify deploy --site $NETLIFY_SITE_ID_DEV --auth $NETLIFY_ACCESS_TOKEN_DEV --prod --dir=storybook-static
+          command: netlify deploy --site $NETLIFY_SITE_ID_DEV --auth $NETLIFY_ACCESS_TOKEN_DEV --prod --dir=storybook-static
 
   test:
     docker:
