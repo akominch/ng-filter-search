@@ -65,6 +65,9 @@ jobs:
           key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
                 .Environment.CIRCLE_SHA1 }}
       - run:
+          name: Install Netlify CLI
+          command: sudo npm install netlify-cli -g
+      - run:
           name: Netlify Deploy
           command: npm run storybook-deploy-dev
 
