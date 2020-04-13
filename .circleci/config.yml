@@ -58,11 +58,11 @@ jobs:
     working_directory: ~/filter-search-circleci
     steps:
       - restore_cache:
-            key: dependency-cache-{{ checksum "package-lock.json" }}
-      - restore_cache:
-          keys:
-            - v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
-              .Environment.CIRCLE_SHA1 }}
+            keys:
+              - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+              - dependency-cache-{{ checksum "package-lock.json" }}
+              - v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+                .Environment.CIRCLE_SHA1 }}
       - run:
           name: Netlify Deploy
           command: ./node_modules/.bin/netlify deploy --site $NETLIFY_SITE_ID_DEV --auth $NETLIFY_ACCESS_TOKEN_DEV --prod --dir=storybook-static
