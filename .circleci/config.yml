@@ -3,10 +3,36 @@ orbs:
   node: circleci/node@1.1.6
   jira: circleci/jira@1.1.6
 
+executors:
+  node:
+    parameters:
+      image:
+        type: string
+        default: "13"
+    docker:
+      - image: circleci/node:<< parameters.image >>
+
+aliases:
+  restore_checkout_code: &restore_checkout_code
+    restore_cache:
+      name: Restore checkout code
+      keys:
+        - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+
+  restore_modules: &restore_modules
+    restore_cache:
+      name: Restore Npm Package Cache
+      key: dependency-cache-{{ checksum "package-lock.json" }}
+
+  restore_storybook: &restore_storybook
+    restore_cache:
+      name: Restore storybook cache
+      key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+        .Environment.CIRCLE_SHA1 }}
+
 jobs:
   checkout_code:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
       - checkout
@@ -16,15 +42,11 @@ jobs:
             - ~/filter-search-circleci
 
   install:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-            key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run:
           name: Install dependencies
           command: npm install
@@ -34,15 +56,11 @@ jobs:
             - node_modules
 
   build_storybook:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run:
           name: Build storybook
           command: npm run build-storybook
@@ -53,17 +71,10 @@ jobs:
             - storybook-static
 
   deploy_dev:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-            key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
-      - restore_cache:
-          key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
-                .Environment.CIRCLE_SHA1 }}
+      - <<: *restore_storybook
       - run:
           name: Install Netlify CLI
           command: sudo npm install netlify-cli -g
@@ -72,28 +83,20 @@ jobs:
           command: npm run storybook-deploy-dev
 
   test:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run: npm test
 
 
   lint:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run: npm test
 
 workflows:
@@ -135,6 +138,8 @@ workflows:
               only:
                 - develop
           post-steps:
-            - jira/notify
+            - jira/notify:
+                job_type: deployment
+                environment_type: develop
 
 
