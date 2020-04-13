@@ -10,7 +10,8 @@
     "lint": "ng lint",
     "e2e": "ng e2e",
     "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook"
+    "build-storybook": "build-storybook",
+    "storybook-deploy-dev": "netlify deploy --site $NETLIFY_SITE_ID_DEV --auth $NETLIFY_ACCESS_TOKEN_DEV --prod --dir=storybook-static"
   },
   "private": true,
   "dependencies": {
