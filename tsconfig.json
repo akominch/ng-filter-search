@@ -11,6 +11,7 @@
     "moduleResolution": "node",
     "importHelpers": true,
     "target": "es2015",
+    "esModuleInterop": true,
     "typeRoots": [
       "node_modules/@types"
     ],
@@ -19,12 +20,7 @@
       "dom"
     ],
     "paths": {
-      "ng-filter-search": [
-        "dist/ng-filter-search/ng-filter-search",
-        "dist/ng-filter-search"
-      ],
       "filter-search": [
-        "dist/filter-search/filter-search",
         "dist/filter-search"
       ]
     }

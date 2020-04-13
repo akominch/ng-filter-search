@@ -2,18 +2,133 @@ version: 2.1
 orbs:
   node: circleci/node@1.1.6
   jira: circleci/jira@1.1.6
+
 jobs:
-  build:
-    executor:
-      name: node/default
+  checkout_code:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
     steps:
       - checkout
-      - node/with-cache:
-          steps:
-            - run: npm install
+      - save_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/filter-search-circleci
+
+  install:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+            key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+
+  build_storybook:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Build storybook
+          command: npm run build-storybook
+      - save_cache:
+          key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+            .Environment.CIRCLE_SHA1 }}
+          paths:
+            - storybook-static
+
+  deploy_dev:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+              .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Netlify Deploy
+          command: ./node_modules/.bin/netlify deploy --site $NETLIFY_SITE_ID_DEV --auth $NETLIFY_ACCESS_TOKEN_DEV --prod --dir=storybook-static
+
+  test:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run: npm test
+
+
+  lint:
+    docker:
+      - image: circleci/node:12
+    working_directory: ~/filter-search-circleci
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run: npm test
+
 workflows:
-    build-and-test:
-      jobs:
-        - build:
-            post-steps:
-              - jira/notify  
+  version: 2
+  testing-linting:
+    jobs:
+      - checkout_code
+      - install:
+          requires:
+            - checkout_code
+          post-steps:
+            - jira/notify
+      - lint:
+          requires:
+            - install
+          post-steps:
+            - jira/notify
+      - test:
+          requires:
+            - install
+          post-steps:
+            - jira/notify
+      - build_storybook:
+          requires:
+            - test
+            - lint
+          filters:
+            branches:
+              only:
+                - develop
+                - master
+          post-steps:
+            - jira/notify
+      - deploy_dev:
+          requires:
+            - build_storybook
+          filters:
+            branches:
+              only:
+                - develop
+          post-steps:
+            - jira/notify
+
+
