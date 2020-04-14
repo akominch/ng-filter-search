@@ -3,10 +3,36 @@ orbs:
   node: circleci/node@1.1.6
   jira: circleci/jira@1.1.6
 
+executors:
+  node:
+    parameters:
+      image:
+        type: string
+        default: "13"
+    docker:
+      - image: circleci/node:<< parameters.image >>
+
+aliases:
+  restore_checkout_code: &restore_checkout_code
+    restore_cache:
+      name: Restore checkout code
+      keys:
+        - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+
+  restore_modules: &restore_modules
+    restore_cache:
+      name: Restore Npm Package Cache
+      key: dependency-cache-{{ checksum "package-lock.json" }}
+
+  restore_storybook: &restore_storybook
+    restore_cache:
+      name: Restore storybook cache
+      key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+        .Environment.CIRCLE_SHA1 }}
+
 jobs:
   checkout_code:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
       - checkout
@@ -16,15 +42,11 @@ jobs:
             - ~/filter-search-circleci
 
   install:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-            key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run:
           name: Install dependencies
           command: npm install
@@ -33,61 +55,94 @@ jobs:
           paths:
             - node_modules
 
-  test:
-    docker:
-      - image: circleci/node:12
+  build_storybook:
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
+      - run:
+          name: Build storybook
+          command: npm run build-storybook
+      - save_cache:
+          key: v1-storybook-dist-{{ .Environment.CIRCLE_BRANCH }}-{{
+            .Environment.CIRCLE_SHA1 }}
+          paths:
+            - storybook-static
+
+  deploy_dev:
+    executor: node
+    working_directory: ~/filter-search-circleci
+    steps:
+      - <<: *restore_checkout_code
+      - <<: *restore_storybook
+      - run:
+          name: Install Netlify CLI
+          command: sudo npm install netlify-cli -g
+      - run:
+          name: Netlify Deploy
+          command: npm run storybook-deploy-dev
+
+  test:
+    executor: node
+    working_directory: ~/filter-search-circleci
+    steps:
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run: npm test
 
 
   lint:
-    docker:
-      - image: circleci/node:12
+    executor: node
     working_directory: ~/filter-search-circleci
     steps:
-      - restore_cache:
-          keys:
-            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - <<: *restore_checkout_code
+      - <<: *restore_modules
       - run: npm test
 
-  build-and-test:
-    executor:
-      name: node/default
-    steps:
-      - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - node/with-cache:
-          steps:
-            - run: npm install
-            - run: npm run lint
-            - run: npm test
 workflows:
   version: 2
-  test-lint:
+  testing-linting:
     jobs:
       - checkout_code
       - install:
           requires:
             - checkout_code
+          post-steps:
+            - jira/notify
       - lint:
           requires:
             - install
+          post-steps:
+            - jira/notify
       - test:
           requires:
             - install
-      - build-and-test:
-          requires:
-            - lint
-            - test
           post-steps:
             - jira/notify
+      - build_storybook:
+          requires:
+            - test
+            - lint
+          filters:
+            branches:
+              only:
+                - develop
+                - master
+          post-steps:
+            - jira/notify:
+                job_type: build
+                environment_type: unmapped
+      - deploy_dev:
+          requires:
+            - build_storybook
+          filters:
+            branches:
+              only:
+                - develop
+          post-steps:
+            - jira/notify:
+                job_type: deployment
+                environment_type: development
+
+
